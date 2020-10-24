@@ -11,28 +11,42 @@ import markdown2
 import tabulate
 from IPython.display import display, HTML, Markdown, Latex, Image
 
-def get_image_folder(image_fn=None, image_dir='img'):
-    if not os.path.exists(image_dir):
-        os.makedirs(image_dir)
-        
-    if image_fn:
-        return os.path.join(image_dir, image_fn)
-    else:
-        return image_dir
+"""pandas_explore.py: Pandasd Profiling Tools"""
 
-def filter_by_tag(df, *args, cond='and', return_cols=True):
-    '''
-    태그 리스트를 기준으로 and/or 조건으로 해당하는 컬럼을 반환
-    ----------
-    example
-    ----------
-    1) or 조건 검색. cnt 혹은 amt가 포함된 컬럼 조회
-    >>> df.pipe(filter_by_tag, 'cnt', 'amt', cond='or', return_cols=False))
-    2) and 조건 검색. iptv, cnt가 포함된 컬럼 조회
-    >>> df.pipe(filter_by_tag, 'iptv', 'cnt', cond='and', return_cols=False))
-    '''
+__author__ = "Jin-kook Choi"
+__license__ = "GPL"
+__version__ = "0.0.1"
+__email__ = "jinkookchoi@gmail.com"
+__status__ = "Production"
+
+def filter_by_tag(df, *tags, cond='and', return_cols=True):
+    """Returns the column corresponding to and/or condition based on the tag list
+
+    Search columns of data frame  based on tags and search conditions, or return filtered data frames
+
+    Args:
+        df (dataframe): Pandas Data Frame
+        tags : tuple of column string tags
+        cond (string): filtering condition, "and" or "or"
+        return_cols (boolean): Determine return type
+
+    Returns:
+        List of columns queried by tags
+
+    Example:
+        >>> df = pd.DataFrame({
+            'fruit_amt':np.random.random(2), 
+            'juice_amt':np.random.random(2), 
+            'sales_cnt':np.random.random(2)})
+        >>> exp.filter_by_tag(df, 'amt', cond='and', return_cols=False)
+        	fruit_amt	juice_amt
+        0	0.239311	0.030956
+        1	0.672927	0.938022
+        >>> exp.filter_by_tag(df, 'fruit', 'sales', cond='or', return_cols=True)
+        ['fruit_amt', 'sales_cnt']
+    """
     col_intersectin_set = {}
-    for idx, tag in enumerate(args):
+    for idx, tag in enumerate(tags):
         selected_set = {col for col in df.columns.values if col.find(str(tag)) >= 0}
         if idx == 0:
             col_intersectin_set = selected_set
@@ -43,84 +57,30 @@ def filter_by_tag(df, *args, cond='and', return_cols=True):
                 col_intersectin_set |= selected_set
 
     col_selected = list(col_intersectin_set)
+
     if return_cols:
-        # 컬럼 리스트를 반환하거나
         return col_selected
     else:
-        # 컬럼 필터링한 데이터프레임을 반환
         if len(col_selected) > 0:
             return df.filter(list(col_intersectin_set))
         else:
             None
-            
-def _src_from_data(data):
-    """HTML img 태그 적용을 위해 이미지를 Base64 인코딩하여 반환"""
-    # https://mindtrove.info/ 참고
-    if data:
-        img_obj = Image(data=data)
-        for bundle in img_obj._repr_mimebundle_():
-            for mimetype, b64value in bundle.items():
-                if mimetype.startswith('image/'):
-                    return f'data:{mimetype};base64,{b64value}'
-    else:
-        return ''
-            
 
-def render_dataset_info(dfs, df_names, set_name=None):
-    '''
-    >>> render_dataset_info(dfs=[df_titanic_train], df_names=['Train'], set_name='Titanic')
-    >>> render_dataset_info(dfs=[df_titanic_train, df_titanic_test], df_names=['Train', 'Test'], set_name='Titanic')
-    '''
-    if len(dfs) == 2:
-        render_cols_table(
-            render_dict_table(dataset_stat(dfs[0]), f'#### 1) {df_names[0]} statistics', render=False), 
-            render_dict_table(variable_types(dfs[0]), f'#### variable types', render=False),
-            render_dict_table(dataset_stat(dfs[1]), f'#### 2) {df_names[1]} statistics', render=False),
-            render_dict_table(variable_types(dfs[1]), f'#### variable types', render=False), 
-            render=True, title=f"## {set_name} Datasets")
-    elif len(dfs) == 1:
-        render_cols_table(
-            render_dict_table(dataset_stat(dfs[0]), f'#### {df_names[0]} statistics', render=False), 
-            render_dict_table(variable_types(dfs[0]), f'#### variable types', render=False),
-            render=True, title=f"## {set_name} Datasets")
-        
+def get_dataset_stat(df):
+    """Extract statistics from data frame
 
-def render_list2table(list_data, header=None, floatfmt=None):
-    """리스트 자료형에서 html 태그를 생성. 컬럼해더 및 소수점 지정 가능"""
-    html = '<table style="background-color:white">'
-    for rid, row in enumerate(list_data):
-        html += '<tr>'
-        for cid, cell in enumerate(row):
-            td_style = ''
-            if (header == 'col' and cid == 0) or (header == 'row' and rid == 0):
-                td_style = 'style="font-weight:bold"'
-
-            value = cell
-
-            # 시간 날 때 리팩토링 할 함수
-            if header == 'row' and floatfmt and type(cell) != str:
-                if floatfmt[cid] == 0:
-                    value = f'{cell:.0f}'
-                if floatfmt[cid] == 2:
-                    value = f'{cell:.2f}'
-                if floatfmt[cid] == 4:
-                    value = f'{cell:.4f}'
-
-            if header == 'col' and floatfmt and type(cell) != str:
-                if floatfmt[rid] == 0:
-                    value = f'{cell:.0f}'
-                if floatfmt[rid] == 2:
-                    value = f'{cell:.2f}'
-                if floatfmt[rid] == 4:
-                    value = f'{cell:.4f}'
-                    
-            html += f'<td {td_style}>{value}</td>'
-        html += '</tr>'
-    html += '</table>'
-    return html            
-            
-def dataset_stat(df, display_only=True):
-    """판다스 데이터프레임에서 정보를 추출함"""
+    Args:
+        df (dataframe)
+    
+    Example:
+        >>> exp.get_dataset_stat(df_stock)
+        {'Number of variables': 7,
+        'Number of observations': 5031,
+        'Missing cells': 0,
+        'Missing cells(%)': 0.0,
+        'Duplicated rows': 0,
+        'Duplicated rows(%)': 0.0}
+    """
     if df.empty:
         return None
     else:
@@ -132,87 +92,96 @@ def dataset_stat(df, display_only=True):
         ratio_of_missing_cells = f2(num_of_missing_cells / (num_of_obs * num_of_var) * 100)
         num_of_duplicated = df.duplicated().sum()
         ratio_of_duplicated = f2(num_of_duplicated / num_of_obs * 100)
+
         return {
             'Number of variables': num_of_var, 'Number of observations': num_of_obs,
-            'Missing cells': num_of_missing_cells, 'Missing cells (%)': ratio_of_missing_cells,
-            'Duplicated rows': num_of_duplicated, 'Duplicated rows (%)': ratio_of_duplicated
+            'Missing cells': num_of_missing_cells, 'Missing cells(%)': ratio_of_missing_cells,
+            'Duplicated rows': num_of_duplicated, 'Duplicated rows(%)': ratio_of_duplicated
         }
 
+def get_image_folder(image_fn=None, image_dir='image'):
+    """Returns plot graphic directory
 
-def render_dict_table(content, title=None, render=True, selected_keys=None, header=None, floatfmt=None):
-    '''
-    딕셔너리 형태의 정보를 html 형태로 변환함
-    --------
-    example
-    --------
-    1) rendering mode
-    >>> render_dict_table(dataset_stat(df_diamonds), '## Diamonds Dataset statistics')
-    2) no rendering mode
-    >>> html = render_dict_table(dataset_stat(df_boston), '## Boston Dataset statistics', render=False)
-    >>> display(HTML(html))
-    '''
+    When image_fn is not None, concatenate image folder and file name
+
+    Args:
+        image_fn (string): Image file name, optional
+        image_dir (string): Image directory name, default value is 'img'
+
+    Returns:
+        string: Image folder directory or file path
+
+    Example:
+        >>> get_image_folder()
+        'img'
+        >>> get_image_folder(image_dir='image')
+        'image'
+        >>> get_image_folder(image_fn='chart.png')
+        'img/chart.png'
+    """
+    if not os.path.exists(image_dir):
+        os.makedirs(image_dir)
     
-    if selected_keys:
-        content = {k: v for k, v in content.items() if k in selected_keys}
-        
-    if title and render:
-        display(Markdown(title))
+    return os.path.join(image_dir, image_fn) if image_fn else image_dir
+
+def get_src_from_data(data=None):
+    """Return Base64-encoded file to apply HTML <img> tag
+
+    Reference:
+        https://mindtrove.info/
+
+    Args:
+        data (string): image file path
     
-    if render:
-        display(HTML(render_list2table([[k, v] for k, v in content.items()], header=header, floatfmt=floatfmt)))
-        
-    if render:
-        return None
+    Returns:
+        Base64-encoded file value
+
+    Example:
+        >>> get_src_from_data('image/chart.pnt')
+    """
+    if data:
+        img_obj = Image(data=data)
+        for bundle in img_obj._repr_mimebundle_():
+            for mimetype, b64value in bundle.items():
+                if mimetype.startswith('image/'):
+                    return f'data:{mimetype};base64,{b64value}'
     else:
-        title = markdown2.markdown(title) if title else ''
-        table = render_list2table([[k, v] for k, v in content.items()], header=header, floatfmt=floatfmt)
-        return (title + table).replace('\n', '')
-
-def render_cols_table(*args, title=None, render=True):
-    """1개의 행에 여러개의 열 정보를 구성할 때 사용하는 html 렌더링 함수"""
-    table = '<table style="background-color:white;"><tr><td style="vertical-align:top;text-align:left">{}</td></tr></table>'.format('</td><td style="vertical-align:top;text-align:left">'.join(str(cell).replace("['", "").replace("']", "").replace("', '", "") for cell in args))
-
-    if title and render:
-        display(Markdown(title))
-        
-    if render:
-        display(HTML(table))
-        
-    if render:
         return None
-    else:
-        title = markdown2.markdown(title) if title else ''
-        return (title + table).replace('\n', '')        
 
-def variable_types(df):
-    """데이터프레임의 자료형을 반환"""
+def get_variable_types(df):
+    """Return variable type dictionary of data frame
+
+    Example:
+        >>> exp.get_variable_types(df_stock)
+        {'Numeric': 6, 'Object': 0, 'Category': 0, 'Datetime': 1, 'Timedeltas': 0}
+    """
     
     variable_types = {'Numeric': np.number,
                      'Object': 'object', 'Category': 'category',
                      'Datetime': 'datetime', 'Timedeltas': 'timedelta'}
     return {k: len(df.select_dtypes(include=v).columns) for k, v in variable_types.items()}
 
-def freedman_diaconis(data, returnas="width"):
-    # http://www.jtrive.com/determining-histogram-bin-width-using-the-freedman-diaconis-rule.html 참고
+def get_freedman_bins(data, returnas="width"):
     """
     Use Freedman Diaconis rule to compute optimal histogram bin width. 
     ``returnas`` can be one of "width" or "bins", indicating whether
     the bin width or number of bins should be returned respectively. 
 
+    http://www.jtrive.com/determining-histogram-bin-width-using-the-freedman-diaconis-rule.html
 
     Parameters
     ----------
     data: np.ndarray
         One-dimensional array.
 
-    returnas: {"width", "bins"}
+    Returns: {"width", "bins"}
         If "width", return the estimated width for each histogram bin. 
         If "bins", return the number of bins suggested by rule.
     """
     data = np.asarray(data, dtype=np.float_)
-    IQR  = stats.iqr(data, rng=(25, 75), scale=1.0, nan_policy="omit")
-    N    = data.size
-    bw   = (2 * IQR) / np.power(N, 1/3)
+    IQR = stats.iqr(data, rng=(25, 75), scale=1.0, nan_policy="omit")
+    N = data.size
+    bw = (2 * IQR) / np.power(N, 1/3)
 
     if returnas=="width":
         result = bw
@@ -224,13 +193,12 @@ def freedman_diaconis(data, returnas="width"):
         result = int((datrng / bw) + 1)
     return result
     
-def variable_stat(df, col, save_hist=True, **kwargs):
+def get_variable_stat(df, col, save_hist=True, **kwargs):
     '''
     데이터 프레임의 단위 변수에 대한 정보를 반환
      - 데이터 프레임이 수치형/오브젝트형으로 변환되었다고 현재 가정
      - 날짜형에 대한 반영 필요 (TBD)
     '''
-#     if df.empty or (len(df[col].isna()) == len(df)):
     if df.empty:
         return None
     
@@ -248,7 +216,12 @@ def variable_stat(df, col, save_hist=True, **kwargs):
     var_stat['distinct(%)'] = f2(var_stat['distinct'] / length * 100)
     var_stat['missing'] = df[col].isna().sum()
     var_stat['missing(%)'] = f2(var_stat['missing'] / length * 100)
-    
+
+    # datetime
+    if pd.api.types.is_datetime64_any_dtype(df[col]):
+        var_stat['minimum'] = df[col].min()
+        var_stat['maximum'] = df[col].max()
+
     if pd.api.types.is_numeric_dtype(df[col]):
         var_stat['minimum'] = df[col].min()
         var_stat['maximum'] = df[col].max()
@@ -282,15 +255,14 @@ def variable_stat(df, col, save_hist=True, **kwargs):
 
     # histogram for numerical
     if save_hist and pd.api.types.is_numeric_dtype(df[col]):
-        # https://www.answerminer.com/blog/binning-guide-ideal-histogram
         if df[col].dropna().empty:
             var_stat['image_fn'] = None
         else:
-            freedman_bins = freedman_diaconis(data=df[col].dropna().values, returnas="bins")
+            freedman_bins = get_freedman_bins(data=df[col].dropna().values, returnas="bins")
             bins = kwargs.get('bins', freedman_bins)
             figsize = kwargs.get('figsize', (4,3))
             var_stat['image_fn'] = get_image_folder(f'hist_{col}_bins_{bins}_{figsize[0]}_{figsize[1]}.png')   
-            ax = df[col].plot(kind='hist', bins=bins, figsize=figsize)
+            ax = df[col].plot(kind='hist', bins=bins, figsize=figsize, edgecolor='black')
             ax.figure.savefig(var_stat['image_fn'])
             plt.close(ax.figure)
         
@@ -319,72 +291,27 @@ def variable_stat(df, col, save_hist=True, **kwargs):
         ax_pie = val_cnt.plot.pie(figsize=pie_figsize)
         ax_pie.figure.savefig(var_stat['image_fn2'])
         plt.close(ax_pie.figure)
-        
+
+    # bar chart for datetime
+    if save_hist and pd.api.types.is_datetime64_any_dtype(df[col]):
+        if df[col].dropna().empty:
+            var_stat['image_fn'] = None
+        else:
+            freedman_bins = get_freedman_bins(data=df[col].dropna().values, returnas="bins")
+            bins = kwargs.get('bins', freedman_bins)
+            figsize = kwargs.get('figsize', (8, 3))
+            var_stat['image_fn'] = get_image_folder(f'hist_{col}_bins_{bins}_{figsize[0]}_{figsize[1]}.png')   
+            ax = df[col].astype(np.int64).plot(kind='hist', bins=bins, figsize=figsize, edgecolor='black')
+
+            labels = ax.get_xticks().tolist()
+            ax.set_xticks(labels)
+            ax.set_xticklabels(pd.to_datetime(labels).strftime('%Y-%m-%d'))
+
+            ax.figure.savefig(var_stat['image_fn'])
+            plt.close(ax.figure)
+
     return var_stat    
     
-# template <- keys
-def render_variable(df, col, title=False):
-    content = variable_stat(df, col)
-    
-    html = '<i>empty</i>'
-    header_style = 'style="font-weight:bold;text-align:center;font-size:1.2em"'
-
-    # for numerical
-    if pd.api.types.is_numeric_dtype(df[col]):
-        col1 = render_dict_table(content, render=False, selected_keys=['size', 'distinct', 'distinct(%)', 'missing', 'missing(%)', 'minimum', 'maximum'], header='col', floatfmt=[0, 0, 2, 0, 2, None, None])
-        col2 = render_dict_table(content, render=False, selected_keys=['mean', 'median', 'sum', 'sd', 'skewness', 'zeros', 'zeros(%)'], header='col', floatfmt=[0, 2, 2, 2, 2, 2, 2])
-        col3 = render_dict_table(content['quantiles'], header='col', render=False, floatfmt=[None, 2, 2, None, 2, 2, None])
-        html = f'''
-        <table style="background-color:white">
-            <tr>
-                <td colspan=2 {header_style}>| Descriptive Stat. |</td>
-                <td {header_style}>| Quantile Stat. |</td>
-
-                <td {header_style}>| Common Values |</td>
-                <td {header_style}>| Min Values |</td>
-                <td {header_style}>| Max Values |</td>
-                <td {header_style}>| Histogram |</td>
-            </tr>
-            <tr>
-                <td>{col1}</td>
-                <td>{col2}</td>
-                <td>{col3}</td>
-                <td>{render_list2table(content['common_values'], header='row', floatfmt=[None, 0, 2])}</td>
-                <td>{render_list2table(content['min_extreme_values'], header='row', floatfmt=[None, 0, 2])}</td>
-                <td>{render_list2table(content['max_extreme_values'], header='row', floatfmt=[None, 0, 2])}</td>
-                <td><img src="{_src_from_data(content['image_fn'])}"></td>
-            </tr>
-        </table>
-        '''.replace('\n', '')
-    
-    # for object/categorical
-    if pd.api.types.is_object_dtype(df[col]):
-        col1 = render_dict_table(content, render=False, selected_keys=['size', 'distinct', 'distinct(%)', 'missing', 'missing(%)'], header='col')
-       
-        html = f'''
-        <table>
-            <tr>
-                <td {header_style}>| Descriptive Statistics |</td>
-                <td {header_style}>| Common Values |</td>
-                <td {header_style}>| Bar Chart |</td>
-                <td {header_style}>| Pie Chart |</td>
-            </tr>
-            <tr>
-                <td>{col1}</td>
-                <td>{render_list2table(content['common_values'], header='row', floatfmt=[None, 0, 2])}</td>
-                <td><img src="{_src_from_data(content['image_fn'])}"></td>
-                <td><img src="{_src_from_data(content['image_fn2'])}"></td>
-            </tr>
-        </table>
-        '''.replace('\n', '')
-    
-    if title:
-        html = f'<h2>{title}</h2>' + html
-        
-    # html
-    display(HTML(html))    
-    
-
 def plot_interface(func):
     def wrapper(*args, **kwargs):
         import uuid
@@ -395,7 +322,7 @@ def plot_interface(func):
         image_fn = kwargs.get('image_fn', get_image_folder(f'{func.__name__}_{args[1]}_{str(uuid.uuid4())}.png'))
         figsize = kwargs.get('figsize', (7,5))
         
-        if func.__name__ not in ['cat2cat', 'num2hist']:
+        if func.__name__ not in ['plot_cat2cat', 'plot_num2hist']:
             plt.figure(figsize=figsize)
         ax, df = func(*args, **kwargs)
                 
@@ -419,7 +346,7 @@ def plot_interface(func):
     return wrapper
 
 @plot_interface
-def num2num(df, num_col, target_col, hue=None, style=None, **kwargs):
+def plot_num2num(df, num_col, target_col, hue=None, style=None, **kwargs):
     '''
     example
     ----------
@@ -430,7 +357,7 @@ def num2num(df, num_col, target_col, hue=None, style=None, **kwargs):
     return ax, df
 
 @plot_interface
-def cat2num(df, cat_col, target_col, hue=None, **kwargs):
+def plot_cat2num(df, cat_col, target_col, hue=None, **kwargs):
     '''
     example
     ----------
@@ -443,17 +370,17 @@ def cat2num(df, cat_col, target_col, hue=None, **kwargs):
 # def plot_val_count(df, )
 
 @plot_interface
-def num2hist(df, num_col, cat_cols=None, **kwargs):
+def plot_num2hist(df, num_col, cat_cols=None, **kwargs):
     '''
     example
     ----------
-    >>> num2hist(df_titanic, ['Survived', 'Pclass'], 'Age')
+    >>> plot_num2hist(df_titanic, ['Survived', 'Pclass'], 'Age')
     '''
     figsize = kwargs.get('figsize', (6,4))
     width, height = figsize[0], figsize[1]
     aspect = width / height
     
-    freedman_bins = freedman_diaconis(data=df[num_col].dropna().values, returnas="bins")
+    freedman_bins = get_freedman_bins(data=df[num_col].dropna().values, returnas="bins")
     bins = kwargs.get('bins', freedman_bins)
 
     if cat_cols == None:
@@ -473,13 +400,13 @@ def num2hist(df, num_col, cat_cols=None, **kwargs):
     return ax, df
 
 @plot_interface
-def cat2pie(df, cat_cols, **kwargs):
+def plot_cat2pie(df, cat_cols, **kwargs):
     figsize = kwargs.get('figsize', (6,4))
     ax = df[cat_cols].value_counts().plot.pie(figsize=figsize)
     return ax, df
 
 @plot_interface
-def cat2cat(df, cat_col, target_col, col=None, col_wrap=None, normalized=False, **kwargs):
+def plot_cat2cat(df, cat_col, target_col, col=None, col_wrap=None, normalized=False, **kwargs):
     '''
     example
     ----------
@@ -505,7 +432,7 @@ def cat2cat(df, cat_col, target_col, col=None, col_wrap=None, normalized=False, 
     return ax, df
 
 @plot_interface
-def num2cat(df, cat_col, target_col, multiple='layer', **kwargs):
+def plot_num2cat(df, cat_col, target_col, multiple='layer', **kwargs):
     '''
     example
     ----------
@@ -515,7 +442,7 @@ def num2cat(df, cat_col, target_col, multiple='layer', **kwargs):
     ax = sns.kdeplot(data=df, x=cat_col, hue=target_col, multiple=multiple)
     return ax, df
 
-def cats2binary(df, cat_cols, target_col, hue=None, **kwargs):
+def plot_cats2binary(df, cat_cols, target_col, hue=None, **kwargs):
     '''
     example
     --------
@@ -557,8 +484,8 @@ def render_cat2cat(df, cat_col, target_col):
     ----------
     >>> render_cat2cat(df_titanic_train, 'Pclass', 'Survived')
     '''
-    cat2cat_counts = cat2cat(df, cat_col, target_col, figsize=(5,3), save_only=True)
-    cat2cat_normalized = cat2cat(df, cat_col, target_col, normalized=True, figsize=(5,3), save_only=True)
+    cat2cat_counts = plot_cat2cat(df, cat_col, target_col, figsize=(5,3), save_only=True)
+    cat2cat_normalized = plot_cat2cat(df, cat_col, target_col, normalized=True, figsize=(5,3), save_only=True)
     header_style = 'style="font-weight:bold;text-align:center;font-size:1.3em"'
     col_header_style = 'style="font-weight:bold;text-align:center;font-size:1.2em;background-color:white"'
 
@@ -567,8 +494,8 @@ def render_cat2cat(df, cat_col, target_col):
             <tr><td colspan=2 {header_style}>"{target_col}" by "{cat_col}"</td></tr>
             <tr><td {col_header_style}>Class Counts</td><td {col_header_style}>Normalized Counts</td></tr>
             <tr>
-                <td><img src="{_src_from_data(cat2cat_counts)}"></td>
-                <td><img src="{_src_from_data(cat2cat_normalized)}"></td>
+                <td><img src="{get_src_from_data(cat2cat_counts)}"></td>
+                <td><img src="{get_src_from_data(cat2cat_normalized)}"></td>
             </tr>
         </table>
     '''
@@ -580,8 +507,8 @@ def render_num2cat(df, num_col, target_col):
     ----------
     >>> render_num2cat(df_titanic_train, 'Age', 'Survived')
     '''
-    layer_image = num2cat(df, num_col, target_col, multiple='layer', figsize=(5,3), save_only=True)
-    fill_image = num2cat(df, num_col, target_col, multiple='fill', figsize=(5,3), save_only=True)
+    layer_image = plot_num2cat(df, num_col, target_col, multiple='layer', figsize=(5,3), save_only=True)
+    fill_image = plot_num2cat(df, num_col, target_col, multiple='fill', figsize=(5,3), save_only=True)
     # unique 숫자에 따른 변수의 분포에 대한 이미지 생성해서 반영
 
     header_style = 'style="font-weight:bold;text-align:center;font-size:1.3em"'
@@ -592,8 +519,8 @@ def render_num2cat(df, num_col, target_col):
             <tr><td colspan=2 {header_style}>"{target_col}" by "{num_col}"</td></tr>
             <tr><td {col_header_style}>Class Distribution</td><td {col_header_style}>Normalized Distribution</td></tr>
             <tr>
-                <td><img src="{_src_from_data(layer_image)}"></td>
-                <td><img src="{_src_from_data(fill_image)}"></td>
+                <td><img src="{get_src_from_data(layer_image)}"></td>
+                <td><img src="{get_src_from_data(fill_image)}"></td>
                 <!-- 이미지 생성한 것 반영 -->
             </tr>
         </table>
@@ -605,9 +532,9 @@ def render_num2num(df, num_col, target_col, **kwargs):
     hue = kwargs.get('hue', None)
     style = kwargs.get('style', None)
 
-    image_default = num2num(df, num_col, target_col, figsize=(5,4), save_only=True)
-    image_category = num2num(df, num_col, target_col, hue=hue, style=style, figsize=(5,4), save_only=True)
-    image_hist = num2hist(df, num_col, figsize=(5,4), save_only=True)
+    image_default = plot_num2num(df, num_col, target_col, figsize=(5,4), save_only=True)
+    image_category = plot_num2num(df, num_col, target_col, hue=hue, style=style, figsize=(5,4), save_only=True)
+    image_hist = plot_num2hist(df, num_col, figsize=(5,4), save_only=True)
 
     header_style = 'style="font-weight:bold;text-align:center;font-size:1.3em"'
     col_header_style = 'style="font-weight:bold;text-align:center;font-size:1.2em;background-color:white"'
@@ -616,9 +543,9 @@ def render_num2num(df, num_col, target_col, **kwargs):
         <table>
             <tr><td {header_style} colspan=2>"{target_col}" Distribution by "{num_col}" </td></tr>
             <tr>
-                <td><img src="{_src_from_data(image_default)}"></td>
-                <td><img src="{_src_from_data(image_category)}"></td>
-                <td><img src="{_src_from_data(image_hist)}"></td>
+                <td><img src="{get_src_from_data(image_default)}"></td>
+                <td><img src="{get_src_from_data(image_category)}"></td>
+                <td><img src="{get_src_from_data(image_hist)}"></td>
             </tr>
         </table>
     '''
@@ -626,8 +553,8 @@ def render_num2num(df, num_col, target_col, **kwargs):
     
 def render_cat2num(df, cat_col, target_col, **kwargs):
 
-    image_box = cat2num(df, cat_col, target_col, figsize=(7,4), save_only=True)
-    image_pie = cat2pie(df, cat_col, figsize=(7,4), save_only=True)
+    image_box = plot_cat2num(df, cat_col, target_col, figsize=(7,4), save_only=True)
+    image_pie = plot_cat2pie(df, cat_col, figsize=(7,4), save_only=True)
 
     header_style = 'style="font-weight:bold;text-align:center;font-size:1.3em"'
     col_header_style = 'style="font-weight:bold;text-align:center;font-size:1.2em;background-color:white"'
@@ -636,12 +563,195 @@ def render_cat2num(df, cat_col, target_col, **kwargs):
         <table>
             <tr><td {header_style} colspan=2>"{target_col}" Distribution by "{cat_col}" </td></tr>
             <tr>
-                <td><img src="{_src_from_data(image_box)}"></td>
-                <td><img src="{_src_from_data(image_pie)}"></td>
+                <td><img src="{get_src_from_data(image_box)}"></td>
+                <td><img src="{get_src_from_data(image_pie)}"></td>
             </tr>
         </table>
     '''
     display(HTML(html))
+
+def render_cols_table(*args, title=None, render=True):
+    """1개의 행에 여러개의 열 정보를 구성할 때 사용하는 html 렌더링 함수"""
+    table = '<table style="background-color:white;"><tr><td style="vertical-align:top;text-align:left">{}</td></tr></table>'.format('</td><td style="vertical-align:top;text-align:left">'.join(str(cell).replace("['", "").replace("']", "").replace("', '", "") for cell in args))
+
+    if title and render:
+        display(Markdown(title))
+        
+    if render:
+        display(HTML(table))
+        
+    if render:
+        return None
+    else:
+        title = markdown2.markdown(title) if title else ''
+        return (title + table).replace('\n', '')        
+
+def render_dataset_info(df, df2=None, set_name=None, df_name=None, df2_name=None):
+    '''
+    >>> render_dataset_info(dfs=[df_titanic_train], df_names=['Train'], set_name='Titanic')
+    >>> render_dataset_info(dfs=[df_titanic_train, df_titanic_test], df_names=['Train', 'Test'], set_name='Titanic')
+    '''
+    if df2 is not None:
+        render_cols_table(
+            render_dict2table(get_dataset_stat(df), title=f'{df_name} statistics', render=False), 
+            render_dict2table(get_variable_types(df), title=f'variable types', render=False),
+            render_dict2table(get_dataset_stat(df2), title=f'{df2_name} statistics', render=False),
+            render_dict2table(get_variable_types(df2), title=f'variable types', render=False), 
+            render=True, title=f"## {set_name} Datasets")
+    else:
+        render_cols_table(
+            render_dict2table(get_dataset_stat(df), title=f'{df_name} statistics', render=False), 
+            render_dict2table(get_variable_types(df), title=f'variable types', render=False),
+            render=True, title=f"## {set_name} Datasets")
+
+def render_variables_info(df, set_name=None):
+    display(Markdown(f'## {set_name} Variables'))
+    for idx, col in enumerate(df.columns.values):
+        display(Markdown(f'### {idx+1}. "{col}"'))
+        render_variable(df, col)
+        display(Markdown(f'----------'))
+
+def render_dict2table(dict_data, header='col', floatfmt=None, title=None, render=None, selected_keys=None):
+    """
+    Example:
+        >>> data_stat = exp.dataset_stat(df_stock)
+        >>> HTML(exp.render_dict2table(data_stat, floatfmt=[None, None, None, 2, None, 2], title='Data Statistics'))
+        Data Statistics
+        Number of variables	7
+        Number of observations	5031
+        Missing cells	0
+        Missing cells(%)	0.00
+        Duplicated rows	0
+        Duplicated rows(%)	0.00
+    """
+    if selected_keys:
+        dict_data = {k: v for k, v in dict_data.items() if k in selected_keys}
+
+    return render_list2table([[k, v] for k, v in dict_data.items()], header=header, floatfmt=floatfmt, title=title, render=render)
+
+def render_list2table(list_data, header=None, floatfmt=None, title=None, render=None):
+    """리스트 자료형에서 html 태그를 생성. 컬럼해더 및 소수점 지정 가능"""
+
+    html = '<table style="background-color:white">'
+    if title is not None:
+        colspan = len(list_data[0])
+        header_style = 'style="font-weight:bold;text-align:center;font-size:1.2em"'
+        html += f'<tr><td colspan={colspan} {header_style}>{title}</td></tr>'
+
+    for rid, row in enumerate(list_data):
+        html += '<tr>'
+        for cid, cell in enumerate(row):
+            td_style = ''
+            if (header == 'col' and cid == 0) or (header == 'row' and rid == 0):
+                td_style = 'style="font-weight:bold"'
+
+            value = cell
+
+            # 시간 날 때 리팩토링 할 함수
+            if header == 'row' and floatfmt and type(cell) != str:
+                if floatfmt[cid] == 0:
+                    value = f'{cell:.0f}'
+                if floatfmt[cid] == 2:
+                    value = f'{cell:.2f}'
+                if floatfmt[cid] == 4:
+                    value = f'{cell:.4f}'
+
+            if header == 'col' and floatfmt and type(cell) != str:
+                if floatfmt[rid] == 0:
+                    value = f'{cell:.0f}'
+                if floatfmt[rid] == 2:
+                    value = f'{cell:.2f}'
+                if floatfmt[rid] == 4:
+                    value = f'{cell:.4f}'
+                    
+            html += f'<td {td_style}>{value}</td>'
+        html += '</tr>'
+    html += '</table>'
+
+    if render:
+        display(HTML(html))
+    else:
+        return html            
+
+def render_variable(df, col, title=False):
+    content = get_variable_stat(df, col)
+    
+    html = '<i>empty</i>'
+    header_style = 'style="font-weight:bold;text-align:center;font-size:1.2em"'
+
+    # for numerical
+    if pd.api.types.is_numeric_dtype(df[col]):
+        col1 = render_dict2table(content, render=False, selected_keys=['size', 'distinct', 'distinct(%)', 'missing', 'missing(%)', 'minimum', 'maximum'], header='col', floatfmt=[0, 0, 2, 0, 2, None, None])
+        col2 = render_dict2table(content, render=False, selected_keys=['mean', 'median', 'sum', 'sd', 'skewness', 'zeros', 'zeros(%)'], header='col', floatfmt=[0, 2, 2, 2, 2, 2, 2])
+        col3 = render_dict2table(content['quantiles'], header='col', render=False, floatfmt=[None, 2, 2, None, 2, 2, None])
+        html = f'''
+        <table style="background-color:white">
+            <tr>
+                <td colspan=2 {header_style}>| Descriptive Stat. |</td>
+                <td {header_style}>| Quantile Stat. |</td>
+
+                <td {header_style}>| Common Values |</td>
+                <td {header_style}>| Min Values |</td>
+                <td {header_style}>| Max Values |</td>
+                <td {header_style}>| Histogram |</td>
+            </tr>
+            <tr>
+                <td>{col1}</td>
+                <td>{col2}</td>
+                <td>{col3}</td>
+                <td>{render_list2table(content['common_values'], header='row', floatfmt=[None, 0, 2])}</td>
+                <td>{render_list2table(content['min_extreme_values'], header='row', floatfmt=[None, 0, 2])}</td>
+                <td>{render_list2table(content['max_extreme_values'], header='row', floatfmt=[None, 0, 2])}</td>
+                <td><img src="{get_src_from_data(content['image_fn'])}"></td>
+            </tr>
+        </table>
+        '''.replace('\n', '')
+    
+    # for object/categorical
+    if pd.api.types.is_object_dtype(df[col]):
+        col1 = render_dict2table(content, render=False, selected_keys=['size', 'distinct', 'distinct(%)', 'missing', 'missing(%)'], header='col')
+       
+        html = f'''
+        <table>
+            <tr>
+                <td {header_style}>| Descriptive Statistics |</td>
+                <td {header_style}>| Common Values |</td>
+                <td {header_style}>| Bar Chart |</td>
+                <td {header_style}>| Pie Chart |</td>
+            </tr>
+            <tr>
+                <td>{col1}</td>
+                <td>{render_list2table(content['common_values'], header='row', floatfmt=[None, 0, 2])}</td>
+                <td><img src="{get_src_from_data(content['image_fn'])}"></td>
+                <td><img src="{get_src_from_data(content['image_fn2'])}"></td>
+            </tr>
+        </table>
+        '''.replace('\n', '')
+
+    # for datetime/timedelta
+    if pd.api.types.is_datetime64_any_dtype(df[col]):
+        col1 = render_dict2table(content, render=False, selected_keys=['size', 'distinct', 'distinct(%)', 'missing', 'missing(%)', 'minimum', 'maximum'], header='col')
+
+        html = f'''
+        <table>
+            <tr>
+                <td {header_style}>| Descriptive Statistics |</td>
+                <td {header_style}>| Common Values |</td>
+                <td {header_style}>| Pie Chart |</td>
+            </tr>
+            <tr>
+                <td>{col1}</td>
+                <td>{render_list2table(content['common_values'], header='row', floatfmt=[None, 0, 2])}</td>
+                <td><img src="{get_src_from_data(content['image_fn'])}"></td>
+            </tr>
+        </table>
+        '''.replace('\n', '')
+    
+    if title:
+        html = f'<h2>{title}</h2>' + html
+        
+    # html
+    display(HTML(html))    
     
 def render_target_by_feature_clf(df, target):
     for col in df.drop(columns=[target]).dtypes.sort_values().index:
