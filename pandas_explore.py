@@ -12,7 +12,7 @@ import markdown2
 import tabulate
 from IPython.display import display, HTML, Markdown, Latex, Image
 
-"""pandas_explore.py: Pandasd Profiling Tools"""
+"""pandas_explore.py: Pandas Profiling Tools"""
 
 __author__ = "Jin-kook Choi"
 __license__ = "GPL"
@@ -361,30 +361,30 @@ def plot_interface(func):
 
 @plot_interface
 def plot_num2num(df, num_col, target_col, hue=None, style=None, **kwargs):
-    '''
+    """
     Example:
         >>> plot_num2num(df_dia_train, 'carat', 'price', hue='color', style='cut', save_only=False, figsize=(12,8))
         >>> plot_num2num(df_dia_train, 'carat', 'price', hue='color', style='cut', bypass=True, figsize=(12,8))
-    '''
+    """
     ax = sns.scatterplot(data=df, x=num_col, y=target_col, hue=hue, style=style)
     return ax, df
 
 @plot_interface
 def plot_cat2num(df, cat_col, target_col, hue=None, **kwargs):
-    '''
+    """
     Example:
         >>> plot_cat2num(df_dia_train, 'color', 'price', save_only=True)
         >>> plot_cat2num(df_dia_train, 'color', 'price', hue='cut', figsize=(15, 8))
-    '''
+    """
     ax = sns.boxplot(data=df, x=cat_col, y=target_col, hue=hue)
     return ax, df
 
 @plot_interface
 def plot_num2hist(df, num_col, cat_cols=None, **kwargs):
-    '''
+    """
     Example:
         >>> plot_num2hist(df_titanic, ['Survived', 'Pclass'], 'Age')
-    '''
+    """
     figsize = kwargs.get('figsize', (6,4))
     width, height = figsize[0], figsize[1]
     aspect = width / height
@@ -410,23 +410,23 @@ def plot_num2hist(df, num_col, cat_cols=None, **kwargs):
 
 @plot_interface
 def plot_cat2pie(df, cat_cols, **kwargs):
-    '''
+    """
     Example:
         >>> plot_cat2pie(df_titanic, 'Pclass', figsize=(3,3))
-    '''
+    """
     figsize = kwargs.get('figsize', (6,4))
     ax = df[cat_cols].value_counts().plot.pie(figsize=figsize)
     return ax, df
 
 @plot_interface
 def plot_cat2cat(df, cat_col, target_col, col=None, col_wrap=None, normalized=False, **kwargs):
-    '''
+    """
     Example:
         >>> plot_cat2cat(df_titanic_train, 'Pclass', 'Survived', col='Sex')
         >>> plot_cat2cat(df_titanic_train, 'Pclass', 'Survived')
         >>> plot_cat2cat(df_titanic_train, 'Pclass', 'Survived', normalized=True)
         >>> plot_cat2cat(df_titanic_train, 'Pclass', 'Survived', normalized=False, save_only=False)
-    '''
+    """
     figsize = kwargs.get('figsize', (6,4))
     width, height = figsize[0], figsize[1]
     aspect = width / height
@@ -445,16 +445,16 @@ def plot_cat2cat(df, cat_col, target_col, col=None, col_wrap=None, normalized=Fa
 
 @plot_interface
 def plot_num2cat(df, cat_col, target_col, multiple='layer', **kwargs):
-    '''
+    """
     Example:
         >>> plot_n2c(df_titanic, 'Age', 'Survived', multiple='fill')
         >>> plot_n2c(df_titanic, 'Age', 'Survived', multiple='layer')
-    '''
+    """
     ax = sns.kdeplot(data=df, x=cat_col, hue=target_col, multiple=multiple)
     return ax, df
 
 def plot_cats2binary(df, cat_cols, target_col, hue=None, **kwargs):
-    '''
+    """
     Example:
         1) category nums == 3
         >>> plot_cats2binary(df_titanic, ['Pclass', 'Sex', 'Embarked'], 'Survived')
@@ -462,7 +462,7 @@ def plot_cats2binary(df, cat_cols, target_col, hue=None, **kwargs):
         >>> plot_cats2binary(df_titanic, ['Pclass', 'Sex'], 'Survived')
         3) category nums == 1
         >>> plot_cats2binary(df_titanic.assign(relatives = lambda df: df.Parch + df.SibSp), ['relatives'], 'Survived')
-    '''
+    """
     assert(len(df[target_col].unique()) == 2)
     bypass = kwargs.get('bypass', False)
     figsize = kwargs.get('figsize', (6,4))
@@ -489,10 +489,10 @@ def plot_cats2binary(df, cat_cols, target_col, hue=None, **kwargs):
         return df
     
 def render_cat2cat(df, cat_col, target_col):
-    '''
+    """
     Example:
         >>> render_cat2cat(df_titanic_train, 'Pclass', 'Survived')
-    '''
+    """
     cat2cat_counts = plot_cat2cat(df, cat_col, target_col, figsize=(5,3), save_only=True)
     cat2cat_normalized = plot_cat2cat(df, cat_col, target_col, normalized=True, figsize=(5,3), save_only=True)
     header_style = 'style="font-weight:bold;text-align:center;font-size:1.3em"'
@@ -511,10 +511,10 @@ def render_cat2cat(df, cat_col, target_col):
     display(HTML(html))
 
 def render_num2cat(df, num_col, target_col):
-    '''
+    """
     Example:
         >>> render_num2cat(df_titanic_train, 'Age', 'Survived')
-    '''
+    """
     layer_image = plot_num2cat(df, num_col, target_col, multiple='layer', figsize=(5,3), save_only=True)
     fill_image = plot_num2cat(df, num_col, target_col, multiple='fill', figsize=(5,3), save_only=True)
     # unique 숫자에 따른 변수의 분포에 대한 이미지 생성해서 반영
@@ -536,10 +536,10 @@ def render_num2cat(df, num_col, target_col):
     display(HTML(html))
     
 def render_num2num(df, num_col, target_col, **kwargs):
-    '''
+    """
     Example:
         >>> render_num2num(df_stock, num_col='Open', target_col='Close')
-    '''
+    """
     hue = kwargs.get('hue', None)
     style = kwargs.get('style', None)
 
@@ -563,10 +563,10 @@ def render_num2num(df, num_col, target_col, **kwargs):
     display(HTML(html))
     
 def render_cat2num(df, cat_col, target_col, **kwargs):
-    '''
+    """
     Example:
         >>> render_num2num(df_stock, num_col='Weekday', target_col='Close')
-    '''
+    """
     image_box = plot_cat2num(df, cat_col, target_col, figsize=(7,4), save_only=True)
     image_pie = plot_cat2pie(df, cat_col, figsize=(7,4), save_only=True)
 
@@ -601,11 +601,11 @@ def render_cols_table(*args, title=None, render=True):
         return (title + table).replace('\n', '')        
 
 def render_dataset_info(df, df2=None, set_name=None, df_name=None, df2_name=None, **kwargs):
-    '''
+    """
     Example:
         >>> render_dataset_info(dfs=[df_titanic_train], df_names=['Train'], set_name='Titanic')
         >>> render_dataset_info(dfs=[df_titanic_train, df_titanic_test], df_names=['Train', 'Test'], set_name='Titanic')
-    '''
+    """
 
     title = kwargs.get('title', f"## {set_name} Datasets")
 
@@ -623,10 +623,10 @@ def render_dataset_info(df, df2=None, set_name=None, df_name=None, df2_name=None
             render=True, title=title)
 
 def render_variables_info(df, set_name=None, **kwargs):
-    '''
+    """
     Example:
         >>> render_variable_info(df_titanic, set_name='Titanic')
-    '''
+    """
     title = kwargs.get('title', f"## {set_name} Variables")
     display(Markdown(title))
     for idx, col in enumerate(df.columns.values):
@@ -635,10 +635,10 @@ def render_variables_info(df, set_name=None, **kwargs):
         display(Markdown(f'----------'))
 
 def render_target_by_feature_clf(df, target, set_name=None, **kwargs):
-    '''
+    """
     Example:
         >>> render_target_by_feature_clf(df_titanic, target='Survived', set_name='Titanic', title='Titanic Variable Analysis')
-    '''
+    """
     title = kwargs.get('title', f"## {set_name} Target Distributiones")
     display(Markdown(title))
 
@@ -651,10 +651,10 @@ def render_target_by_feature_clf(df, target, set_name=None, **kwargs):
             render_cat2cat(df, col, target)
             
 def render_target_by_feature_reg(df, target, set_name=None, **kwargs):
-    '''
+    """
     Example:
         >>> render_target_by_feature_reg(df_stock, target='Close', set_name='Stock', title='Stock Variable Analysis')
-    '''
+    """
     title = kwargs.get('title', f"## {set_name} Target Distributiones")
     display(Markdown(title))
 
@@ -730,10 +730,10 @@ def render_list2table(list_data, header=None, floatfmt=None, title=None, render=
         return html            
 
 def render_variable(df, col, title=False):
-    '''
+    """
     Example:
         >>> render_variable(df_titanic, 'Pclass')
-    '''
+    """
     content = get_variable_stat(df, col)
     
     html = '<i>empty</i>'
@@ -818,10 +818,10 @@ def render_variable(df, col, title=False):
     display(HTML(html))    
     
 def report_dataset(df, df_name, set_name, target_col, model_type='clf'):
-    '''
+    """
     Example:
         >>> report_dataset(df_titanic, df_name='Titanic', set_name='Train', target_col='Survived', model_type='clf')
-    '''
+    """
     # dataset info
     render_dataset_info(df, df_name=df_name, set_name=set_name, title=f'## 1. "{set_name}" Dataset Information')
 
