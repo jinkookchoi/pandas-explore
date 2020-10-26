@@ -1,11 +1,12 @@
 # -*- coding: utf-8 -*-
 
 import os
+import uuid
 import numpy as np
-from scipy import stats
 import pandas as pd
 import seaborn as sns
 import matplotlib.pyplot as plt
+from scipy import stats
 
 import markdown2
 import tabulate
@@ -17,7 +18,7 @@ __author__ = "Jin-kook Choi"
 __license__ = "GPL"
 __version__ = "0.0.1"
 __email__ = "jinkookchoi@gmail.com"
-__status__ = "Production"
+__status__ = "Development"
 
 def filter_by_tag(df, *tags, cond='and', return_cols=True):
     """Returns the column corresponding to and/or condition based on the tag list
@@ -124,7 +125,7 @@ def get_image_folder(image_fn=None, image_dir='image'):
     
     return os.path.join(image_dir, image_fn) if image_fn else image_dir
 
-def get_src_from_data(data=None):
+def get_src_from_data(data=None, html=False):
     """Return Base64-encoded file to apply HTML <img> tag
 
     Reference:
@@ -144,9 +145,16 @@ def get_src_from_data(data=None):
         for bundle in img_obj._repr_mimebundle_():
             for mimetype, b64value in bundle.items():
                 if mimetype.startswith('image/'):
-                    return f'data:{mimetype};base64,{b64value}'
+                    encoded = f'data:{mimetype};base64,{b64value}'
+                    if html:
+                        return f'<img src="{encoded}">'
+                    else:
+                        return encoded
     else:
-        return None
+        if html:
+            return "<span><i>Image Not Available</i></span>"
+        else:
+            return None
 
 def get_variable_types(df):
     """Return variable type dictionary of data frame
@@ -161,7 +169,7 @@ def get_variable_types(df):
                      'Datetime': 'datetime', 'Timedeltas': 'timedelta'}
     return {k: len(df.select_dtypes(include=v).columns) for k, v in variable_types.items()}
 
-def get_freedman_bins(data, returnas="width"):
+def get_freedman_bins(data, returnas="width", max_bins=50):
     """
     Use Freedman Diaconis rule to compute optimal histogram bin width. 
     ``returnas`` can be one of "width" or "bins", indicating whether
@@ -191,14 +199,20 @@ def get_freedman_bins(data, returnas="width"):
         if bw == 0:
             bw = 1
         result = int((datrng / bw) + 1)
+        result = max_bins if result > max_bins else result
     return result
     
 def get_variable_stat(df, col, save_hist=True, **kwargs):
-    '''
-    데이터 프레임의 단위 변수에 대한 정보를 반환
-     - 데이터 프레임이 수치형/오브젝트형으로 변환되었다고 현재 가정
-     - 날짜형에 대한 반영 필요 (TBD)
-    '''
+    """
+    Examples:
+        >>> exp.get_variable_stat(df_stock, col='High', save_hist=True)
+        {'variable_name': 'High',
+        'dtype_str': 'float64',
+        'size': 5031,
+        'distinct': 4462,
+        'distinct(%)': 88.69,
+        ...
+    """
     if df.empty:
         return None
     
@@ -217,11 +231,12 @@ def get_variable_stat(df, col, save_hist=True, **kwargs):
     var_stat['missing'] = df[col].isna().sum()
     var_stat['missing(%)'] = f2(var_stat['missing'] / length * 100)
 
-    # datetime
+    # datetime values
     if pd.api.types.is_datetime64_any_dtype(df[col]):
         var_stat['minimum'] = df[col].min()
         var_stat['maximum'] = df[col].max()
 
+    # numeric values
     if pd.api.types.is_numeric_dtype(df[col]):
         var_stat['minimum'] = df[col].min()
         var_stat['maximum'] = df[col].max()
@@ -314,8 +329,6 @@ def get_variable_stat(df, col, save_hist=True, **kwargs):
     
 def plot_interface(func):
     def wrapper(*args, **kwargs):
-        import uuid
-
         bypass = kwargs.get('bypass', False)
         return_ax = kwargs.get('return_ax', False)
         save_only = kwargs.get('save_only', False)
@@ -324,6 +337,7 @@ def plot_interface(func):
         
         if func.__name__ not in ['plot_cat2cat', 'plot_num2hist']:
             plt.figure(figsize=figsize)
+
         ax, df = func(*args, **kwargs)
                 
         if return_ax:
@@ -348,10 +362,9 @@ def plot_interface(func):
 @plot_interface
 def plot_num2num(df, num_col, target_col, hue=None, style=None, **kwargs):
     '''
-    example
-    ----------
-    >>> plot_num2num(df_dia_train, 'carat', 'price', hue='color', style='cut', save_only=False, figsize=(12,8))
-    >>> plot_num2num(df_dia_train, 'carat', 'price', hue='color', style='cut', bypass=True, figsize=(12,8))
+    Example:
+        >>> plot_num2num(df_dia_train, 'carat', 'price', hue='color', style='cut', save_only=False, figsize=(12,8))
+        >>> plot_num2num(df_dia_train, 'carat', 'price', hue='color', style='cut', bypass=True, figsize=(12,8))
     '''
     ax = sns.scatterplot(data=df, x=num_col, y=target_col, hue=hue, style=style)
     return ax, df
@@ -359,22 +372,18 @@ def plot_num2num(df, num_col, target_col, hue=None, style=None, **kwargs):
 @plot_interface
 def plot_cat2num(df, cat_col, target_col, hue=None, **kwargs):
     '''
-    example
-    ----------
-    >>> plot_cat2num(df_dia_train, 'color', 'price', save_only=True)
-    >>> plot_cat2num(df_dia_train, 'color', 'price', hue='cut', figsize=(15, 8))
+    Example:
+        >>> plot_cat2num(df_dia_train, 'color', 'price', save_only=True)
+        >>> plot_cat2num(df_dia_train, 'color', 'price', hue='cut', figsize=(15, 8))
     '''
     ax = sns.boxplot(data=df, x=cat_col, y=target_col, hue=hue)
     return ax, df
 
-# def plot_val_count(df, )
-
 @plot_interface
 def plot_num2hist(df, num_col, cat_cols=None, **kwargs):
     '''
-    example
-    ----------
-    >>> plot_num2hist(df_titanic, ['Survived', 'Pclass'], 'Age')
+    Example:
+        >>> plot_num2hist(df_titanic, ['Survived', 'Pclass'], 'Age')
     '''
     figsize = kwargs.get('figsize', (6,4))
     width, height = figsize[0], figsize[1]
@@ -401,6 +410,10 @@ def plot_num2hist(df, num_col, cat_cols=None, **kwargs):
 
 @plot_interface
 def plot_cat2pie(df, cat_cols, **kwargs):
+    '''
+    Example:
+        >>> plot_cat2pie(df_titanic, 'Pclass', figsize=(3,3))
+    '''
     figsize = kwargs.get('figsize', (6,4))
     ax = df[cat_cols].value_counts().plot.pie(figsize=figsize)
     return ax, df
@@ -408,12 +421,11 @@ def plot_cat2pie(df, cat_cols, **kwargs):
 @plot_interface
 def plot_cat2cat(df, cat_col, target_col, col=None, col_wrap=None, normalized=False, **kwargs):
     '''
-    example
-    ----------
-    >>> plot_cat2cat(df_titanic_train, 'Pclass', 'Survived', col='Sex')
-    >>> plot_cat2cat(df_titanic_train, 'Pclass', 'Survived')
-    >>> plot_cat2cat(df_titanic_train, 'Pclass', 'Survived', normalized=True)
-    >>> plot_cat2cat(df_titanic_train, 'Pclass', 'Survived', normalized=False, save_only=False)
+    Example:
+        >>> plot_cat2cat(df_titanic_train, 'Pclass', 'Survived', col='Sex')
+        >>> plot_cat2cat(df_titanic_train, 'Pclass', 'Survived')
+        >>> plot_cat2cat(df_titanic_train, 'Pclass', 'Survived', normalized=True)
+        >>> plot_cat2cat(df_titanic_train, 'Pclass', 'Survived', normalized=False, save_only=False)
     '''
     figsize = kwargs.get('figsize', (6,4))
     width, height = figsize[0], figsize[1]
@@ -434,24 +446,22 @@ def plot_cat2cat(df, cat_col, target_col, col=None, col_wrap=None, normalized=Fa
 @plot_interface
 def plot_num2cat(df, cat_col, target_col, multiple='layer', **kwargs):
     '''
-    example
-    ----------
-    >>> plot_n2c(df_titanic, 'Age', 'Survived', multiple='fill')
-    >>> plot_n2c(df_titanic, 'Age', 'Survived', multiple='layer')
+    Example:
+        >>> plot_n2c(df_titanic, 'Age', 'Survived', multiple='fill')
+        >>> plot_n2c(df_titanic, 'Age', 'Survived', multiple='layer')
     '''
     ax = sns.kdeplot(data=df, x=cat_col, hue=target_col, multiple=multiple)
     return ax, df
 
 def plot_cats2binary(df, cat_cols, target_col, hue=None, **kwargs):
     '''
-    example
-    --------
-    1) category nums == 3
-    >>> plot_cats2binary(df_titanic, ['Pclass', 'Sex', 'Embarked'], 'Survived')
-    2) category nums == 2
-    >>> plot_cats2binary(df_titanic, ['Pclass', 'Sex'], 'Survived')
-    3) category nums == 1
-    >>> plot_cats2binary(df_titanic.assign(relatives = lambda df: df.Parch + df.SibSp), ['relatives'], 'Survived')
+    Example:
+        1) category nums == 3
+        >>> plot_cats2binary(df_titanic, ['Pclass', 'Sex', 'Embarked'], 'Survived')
+        2) category nums == 2
+        >>> plot_cats2binary(df_titanic, ['Pclass', 'Sex'], 'Survived')
+        3) category nums == 1
+        >>> plot_cats2binary(df_titanic.assign(relatives = lambda df: df.Parch + df.SibSp), ['relatives'], 'Survived')
     '''
     assert(len(df[target_col].unique()) == 2)
     bypass = kwargs.get('bypass', False)
@@ -480,9 +490,8 @@ def plot_cats2binary(df, cat_cols, target_col, hue=None, **kwargs):
     
 def render_cat2cat(df, cat_col, target_col):
     '''
-    example
-    ----------
-    >>> render_cat2cat(df_titanic_train, 'Pclass', 'Survived')
+    Example:
+        >>> render_cat2cat(df_titanic_train, 'Pclass', 'Survived')
     '''
     cat2cat_counts = plot_cat2cat(df, cat_col, target_col, figsize=(5,3), save_only=True)
     cat2cat_normalized = plot_cat2cat(df, cat_col, target_col, normalized=True, figsize=(5,3), save_only=True)
@@ -503,9 +512,8 @@ def render_cat2cat(df, cat_col, target_col):
 
 def render_num2cat(df, num_col, target_col):
     '''
-    example
-    ----------
-    >>> render_num2cat(df_titanic_train, 'Age', 'Survived')
+    Example:
+        >>> render_num2cat(df_titanic_train, 'Age', 'Survived')
     '''
     layer_image = plot_num2cat(df, num_col, target_col, multiple='layer', figsize=(5,3), save_only=True)
     fill_image = plot_num2cat(df, num_col, target_col, multiple='fill', figsize=(5,3), save_only=True)
@@ -528,7 +536,10 @@ def render_num2cat(df, num_col, target_col):
     display(HTML(html))
     
 def render_num2num(df, num_col, target_col, **kwargs):
-
+    '''
+    Example:
+        >>> render_num2num(df_stock, num_col='Open', target_col='Close')
+    '''
     hue = kwargs.get('hue', None)
     style = kwargs.get('style', None)
 
@@ -541,7 +552,7 @@ def render_num2num(df, num_col, target_col, **kwargs):
     
     html = f'''
         <table>
-            <tr><td {header_style} colspan=2>"{target_col}" Distribution by "{num_col}" </td></tr>
+            <tr><td {header_style} colspan=3>"{target_col}" Distribution by "{num_col}" </td></tr>
             <tr>
                 <td><img src="{get_src_from_data(image_default)}"></td>
                 <td><img src="{get_src_from_data(image_category)}"></td>
@@ -552,7 +563,10 @@ def render_num2num(df, num_col, target_col, **kwargs):
     display(HTML(html))
     
 def render_cat2num(df, cat_col, target_col, **kwargs):
-
+    '''
+    Example:
+        >>> render_num2num(df_stock, num_col='Weekday', target_col='Close')
+    '''
     image_box = plot_cat2num(df, cat_col, target_col, figsize=(7,4), save_only=True)
     image_pie = plot_cat2pie(df, cat_col, figsize=(7,4), save_only=True)
 
@@ -586,30 +600,72 @@ def render_cols_table(*args, title=None, render=True):
         title = markdown2.markdown(title) if title else ''
         return (title + table).replace('\n', '')        
 
-def render_dataset_info(df, df2=None, set_name=None, df_name=None, df2_name=None):
+def render_dataset_info(df, df2=None, set_name=None, df_name=None, df2_name=None, **kwargs):
     '''
-    >>> render_dataset_info(dfs=[df_titanic_train], df_names=['Train'], set_name='Titanic')
-    >>> render_dataset_info(dfs=[df_titanic_train, df_titanic_test], df_names=['Train', 'Test'], set_name='Titanic')
+    Example:
+        >>> render_dataset_info(dfs=[df_titanic_train], df_names=['Train'], set_name='Titanic')
+        >>> render_dataset_info(dfs=[df_titanic_train, df_titanic_test], df_names=['Train', 'Test'], set_name='Titanic')
     '''
+
+    title = kwargs.get('title', f"## {set_name} Datasets")
+
     if df2 is not None:
         render_cols_table(
             render_dict2table(get_dataset_stat(df), title=f'{df_name} statistics', render=False), 
             render_dict2table(get_variable_types(df), title=f'variable types', render=False),
             render_dict2table(get_dataset_stat(df2), title=f'{df2_name} statistics', render=False),
             render_dict2table(get_variable_types(df2), title=f'variable types', render=False), 
-            render=True, title=f"## {set_name} Datasets")
+            render=True, title=title)
     else:
         render_cols_table(
             render_dict2table(get_dataset_stat(df), title=f'{df_name} statistics', render=False), 
             render_dict2table(get_variable_types(df), title=f'variable types', render=False),
-            render=True, title=f"## {set_name} Datasets")
+            render=True, title=title)
 
-def render_variables_info(df, set_name=None):
-    display(Markdown(f'## {set_name} Variables'))
+def render_variables_info(df, set_name=None, **kwargs):
+    '''
+    Example:
+        >>> render_variable_info(df_titanic, set_name='Titanic')
+    '''
+    title = kwargs.get('title', f"## {set_name} Variables")
+    display(Markdown(title))
     for idx, col in enumerate(df.columns.values):
         display(Markdown(f'### {idx+1}. "{col}"'))
         render_variable(df, col)
         display(Markdown(f'----------'))
+
+def render_target_by_feature_clf(df, target, set_name=None, **kwargs):
+    '''
+    Example:
+        >>> render_target_by_feature_clf(df_titanic, target='Survived', set_name='Titanic', title='Titanic Variable Analysis')
+    '''
+    title = kwargs.get('title', f"## {set_name} Target Distributiones")
+    display(Markdown(title))
+
+    for col in df.drop(columns=[target]).dtypes.sort_values().index:
+        if pd.api.types.is_numeric_dtype(df[col]):
+            render_num2cat(df, col, target)
+
+    for col in df.drop(columns=[target]).dtypes.sort_values().index:
+        if pd.api.types.is_object_dtype(df[col]):
+            render_cat2cat(df, col, target)
+            
+def render_target_by_feature_reg(df, target, set_name=None, **kwargs):
+    '''
+    Example:
+        >>> render_target_by_feature_reg(df_stock, target='Close', set_name='Stock', title='Stock Variable Analysis')
+    '''
+    title = kwargs.get('title', f"## {set_name} Target Distributiones")
+    display(Markdown(title))
+
+    for col in df.drop(columns=[target]).dtypes.sort_values().index:
+        if pd.api.types.is_numeric_dtype(df[col]):
+            n2n_option = kwargs.get('n2n_option', {'hue': None, 'style': None})
+            render_num2num(df, col, target, hue=n2n_option['hue'], style=n2n_option['style'], figsize=(6,4))
+
+    for col in df.drop(columns=[target]).dtypes.sort_values().index:
+        if pd.api.types.is_object_dtype(df[col]):
+            render_cat2num(df, col, target)
 
 def render_dict2table(dict_data, header='col', floatfmt=None, title=None, render=None, selected_keys=None):
     """
@@ -674,6 +730,10 @@ def render_list2table(list_data, header=None, floatfmt=None, title=None, render=
         return html            
 
 def render_variable(df, col, title=False):
+    '''
+    Example:
+        >>> render_variable(df_titanic, 'Pclass')
+    '''
     content = get_variable_stat(df, col)
     
     html = '<i>empty</i>'
@@ -684,6 +744,7 @@ def render_variable(df, col, title=False):
         col1 = render_dict2table(content, render=False, selected_keys=['size', 'distinct', 'distinct(%)', 'missing', 'missing(%)', 'minimum', 'maximum'], header='col', floatfmt=[0, 0, 2, 0, 2, None, None])
         col2 = render_dict2table(content, render=False, selected_keys=['mean', 'median', 'sum', 'sd', 'skewness', 'zeros', 'zeros(%)'], header='col', floatfmt=[0, 2, 2, 2, 2, 2, 2])
         col3 = render_dict2table(content['quantiles'], header='col', render=False, floatfmt=[None, 2, 2, None, 2, 2, None])
+        image_tag = get_src_from_data(content['image_fn'], html=True)
         html = f'''
         <table style="background-color:white">
             <tr>
@@ -702,7 +763,7 @@ def render_variable(df, col, title=False):
                 <td>{render_list2table(content['common_values'], header='row', floatfmt=[None, 0, 2])}</td>
                 <td>{render_list2table(content['min_extreme_values'], header='row', floatfmt=[None, 0, 2])}</td>
                 <td>{render_list2table(content['max_extreme_values'], header='row', floatfmt=[None, 0, 2])}</td>
-                <td><img src="{get_src_from_data(content['image_fn'])}"></td>
+                <td>{image_tag}</td>
             </tr>
         </table>
         '''.replace('\n', '')
@@ -710,7 +771,9 @@ def render_variable(df, col, title=False):
     # for object/categorical
     if pd.api.types.is_object_dtype(df[col]):
         col1 = render_dict2table(content, render=False, selected_keys=['size', 'distinct', 'distinct(%)', 'missing', 'missing(%)'], header='col')
-       
+        image_tag = get_src_from_data(content['image_fn'], html=True)
+        image_tag2 = get_src_from_data(content['image_fn2'], html=True)
+
         html = f'''
         <table>
             <tr>
@@ -722,8 +785,8 @@ def render_variable(df, col, title=False):
             <tr>
                 <td>{col1}</td>
                 <td>{render_list2table(content['common_values'], header='row', floatfmt=[None, 0, 2])}</td>
-                <td><img src="{get_src_from_data(content['image_fn'])}"></td>
-                <td><img src="{get_src_from_data(content['image_fn2'])}"></td>
+                <td>{image_tag}</td>
+                <td>{image_tag2}</td>
             </tr>
         </table>
         '''.replace('\n', '')
@@ -731,6 +794,7 @@ def render_variable(df, col, title=False):
     # for datetime/timedelta
     if pd.api.types.is_datetime64_any_dtype(df[col]):
         col1 = render_dict2table(content, render=False, selected_keys=['size', 'distinct', 'distinct(%)', 'missing', 'missing(%)', 'minimum', 'maximum'], header='col')
+        image_tag = get_src_from_data(content['image_fn'], html=True)
 
         html = f'''
         <table>
@@ -742,7 +806,7 @@ def render_variable(df, col, title=False):
             <tr>
                 <td>{col1}</td>
                 <td>{render_list2table(content['common_values'], header='row', floatfmt=[None, 0, 2])}</td>
-                <td><img src="{get_src_from_data(content['image_fn'])}"></td>
+                <td>{image_tag}</td>
             </tr>
         </table>
         '''.replace('\n', '')
@@ -753,21 +817,20 @@ def render_variable(df, col, title=False):
     # html
     display(HTML(html))    
     
-def render_target_by_feature_clf(df, target):
-    for col in df.drop(columns=[target]).dtypes.sort_values().index:
-        if pd.api.types.is_numeric_dtype(df[col]):
-            render_num2cat(df, col, target)
+def report_dataset(df, df_name, set_name, target_col, model_type='clf'):
+    '''
+    Example:
+        >>> report_dataset(df_titanic, df_name='Titanic', set_name='Train', target_col='Survived', model_type='clf')
+    '''
+    # dataset info
+    render_dataset_info(df, df_name=df_name, set_name=set_name, title=f'## 1. "{set_name}" Dataset Information')
 
-    for col in df.drop(columns=[target]).dtypes.sort_values().index:
-        if pd.api.types.is_object_dtype(df[col]):
-            render_cat2cat(df, col, target)
-            
-def render_target_by_feature_reg(df, target, **kwargs):
-    for col in df.drop(columns=[target]).dtypes.sort_values().index:
-        if pd.api.types.is_numeric_dtype(df[col]):
-            n2n_option = kwargs.get('n2n_option', {'hue': None, 'style': None})
-            render_num2num(df, col, target, hue=n2n_option['hue'], style=n2n_option['style'], figsize=(6,4))
+    # variable info
+    render_variables_info(df, set_name=set_name, title=f'## 2. "{set_name}" Variables')
 
-    for col in df.drop(columns=[target]).dtypes.sort_values().index:
-        if pd.api.types.is_object_dtype(df[col]):
-            render_cat2num(df, col, target)
+    # target distribution by feature
+    title_feature_dist = f'## 3. "{set_name}" Target({target_col}) Distribution'
+    if model_type == 'reg':
+        render_target_by_feature_reg(df, target_col, set_name=set_name, title=title_feature_dist)
+    elif model_type == 'clf':
+        render_target_by_feature_clf(df, target_col, set_name=set_name, title=title_feature_dist)
