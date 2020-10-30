@@ -2,12 +2,14 @@
 
 import os
 import uuid
+import warnings
 import numpy as np
 import pandas as pd
 import seaborn as sns
 import matplotlib.pyplot as plt
 from scipy import stats
 from functools import wraps
+from packaging import version
 
 import markdown2
 import tabulate
@@ -20,6 +22,10 @@ __license__ = "GPL"
 __version__ = "0.0.1"
 __email__ = "jinkookchoi@gmail.com"
 __status__ = "Development"
+
+warnings.simplefilter(action='ignore', category=FutureWarning)
+warnings.filterwarnings('ignore')
+# plt.rc('font', family='NamumGothicCoding')
 
 # document
 # pdoc --html --force --output-dir docs pandas_explore
@@ -529,8 +535,8 @@ def plot_cat2cat(df, cat_col, target_col, col=None, col_wrap=None, normalized=Fa
         
     return ax, df
 
-@plot_interface
-def plot_num2cat(df, cat_col, target_col, multiple='layer', **kwargs):
+# @plot_interface
+def plot_num2cat(df, num_col, target_col, multiple='layer', **kwargs):
     """
     수치형 변수 변동와 범주형 변수의 관계 이해를 위한 seaborn wrapper 함수이다.
 
@@ -538,7 +544,7 @@ def plot_num2cat(df, cat_col, target_col, multiple='layer', **kwargs):
 
     Arguments:
         df (Data Frame)
-        cat_col (str)
+        num_col (str)
         target_col (str)
         multiple (str) : 'layer' 혹은 'fill' 옵션 사용 가능
 
@@ -546,8 +552,26 @@ def plot_num2cat(df, cat_col, target_col, multiple='layer', **kwargs):
         >>> plot_n2c(df_titanic, 'Age', 'Survived', multiple='fill')
         >>> plot_n2c(df_titanic, 'Age', 'Survived', multiple='layer')
     """
-    ax = sns.kdeplot(data=df, x=cat_col, hue=target_col, multiple=multiple)
-    return ax, df
+    bypass = kwargs.get('bypass', False)
+    return_ax = kwargs.get('return_ax', False)
+    save_only = kwargs.get('save_only', False)
+    image_fn = kwargs.get('image_fn', get_image_folder(f'plot_num2cat_{str(uuid.uuid4())}.png'))
+    figsize = kwargs.get('figsize', (7,5))
+
+    if version.parse(sns.__version__) >= version.parse("0.11.0"):
+        ax = sns.kdeplot(data=df, x=num_col, hue=target_col, multiple=multiple)
+    else:
+        color = ['red', 'green', 'orange', 'blue', 'grey', 'navy', 'black']
+        for idx, cat in enumerate(df[target_col].unique()):
+            sns.kdeplot(df[df[target_col] == cat][num_col].dropna(), color=color[idx], label=cat)
+
+    if save_only:
+        plt.savefig(image_fn)
+        plt.close()
+        return image_fn
+
+    if bypass:
+        return df
 
 def plot_cats2point(df, cat_cols, target_col, hue=None, **kwargs):
     """
@@ -637,24 +661,41 @@ def render_num2cat(df, num_col, target_col):
     Example:
         >>> render_num2cat(df_titanic_train, 'Age', 'Survived')
     """
-    layer_image = plot_num2cat(df, num_col, target_col, multiple='layer', figsize=(5,3), save_only=True)
-    fill_image = plot_num2cat(df, num_col, target_col, multiple='fill', figsize=(5,3), save_only=True)
-    # unique 숫자에 따른 변수의 분포에 대한 이미지 생성해서 반영
+    if version.parse(sns.__version__) >= version.parse("0.11.0"):
+        layer_image = plot_num2cat(df, num_col, target_col, multiple='layer', figsize=(5,3), save_only=True)
+        fill_image = plot_num2cat(df, num_col, target_col, multiple='fill', figsize=(5,3), save_only=True)
+        # unique 숫자에 따른 변수의 분포에 대한 이미지 생성해서 반영
 
-    header_style = 'style="font-weight:bold;text-align:center;font-size:1.3em"'
-    col_header_style = 'style="font-weight:bold;text-align:center;font-size:1.2em;background-color:white"'
+        header_style = 'style="font-weight:bold;text-align:center;font-size:1.3em"'
+        col_header_style = 'style="font-weight:bold;text-align:center;font-size:1.2em;background-color:white"'
 
-    html = f'''
-        <table>
-            <tr><td colspan=2 {header_style}>"{target_col}" by "{num_col}"</td></tr>
-            <tr><td {col_header_style}>Class Distribution</td><td {col_header_style}>Normalized Distribution</td></tr>
-            <tr>
-                <td><img src="{get_src_from_data(layer_image)}"></td>
-                <td><img src="{get_src_from_data(fill_image)}"></td>
-                <!-- 이미지 생성한 것 반영 -->
-            </tr>
-        </table>
-    '''
+        html = f'''
+            <table>
+                <tr><td colspan=2 {header_style}>"{target_col}" by "{num_col}"</td></tr>
+                <tr><td {col_header_style}>Class Distribution</td><td {col_header_style}>Normalized Distribution</td></tr>
+                <tr>
+                    <td><img src="{get_src_from_data(layer_image)}"></td>
+                    <td><img src="{get_src_from_data(fill_image)}"></td>
+                    <!-- 이미지 생성한 것 반영 -->
+                </tr>
+            </table>
+        '''
+    else:
+        layer_image = plot_num2cat(df, num_col, target_col, multiple='layer', figsize=(5,3), save_only=True)
+        # unique 숫자에 따른 변수의 분포에 대한 이미지 생성해서 반영
+
+        header_style = 'style="font-weight:bold;text-align:center;font-size:1.3em"'
+        col_header_style = 'style="font-weight:bold;text-align:center;font-size:1.2em;background-color:white"'
+
+        html = f'''
+            <table>
+                <tr><td colspan=2 {header_style}>"{target_col}" by "{num_col}"</td></tr>
+                <tr><td {col_header_style}>Class Distribution</td></tr>
+                <tr>
+                    <td><img src="{get_src_from_data(layer_image)}"></td>
+                </tr>
+            </table>
+        '''
     display(HTML(html))
     
 def render_num2num(df, num_col, target_col, **kwargs):
@@ -756,6 +797,7 @@ def render_dataset_info(render_info, **kwargs):
             render_dict2table(get_dataset_stat(dfs[1]['df']), title=f'{dfs[1]["df_name"]} statistics', render=False),
             render_dict2table(get_variable_types(dfs[1]['df']), title=f'variable types', render=False), 
             render=True, title=title)
+    display(Markdown(f'----------'))
 
 def render_variables_info(render_info, **kwargs):
     """
@@ -794,11 +836,13 @@ def render_target_by_feature_clf(df, target, set_name=None, **kwargs):
     for col in df.drop(columns=[target]).dtypes.sort_values().index:
         if pd.api.types.is_numeric_dtype(df[col]):
             render_num2cat(df, col, target)
+            display(Markdown(f'----------'))
 
     for col in df.drop(columns=[target]).dtypes.sort_values().index:
         if pd.api.types.is_object_dtype(df[col]):
             render_cat2cat(df, col, target)
-            
+            display(Markdown(f'----------'))
+
 def render_target_by_feature_reg(df, target, set_name=None, **kwargs):
     """
     Example:
@@ -811,10 +855,12 @@ def render_target_by_feature_reg(df, target, set_name=None, **kwargs):
         if pd.api.types.is_numeric_dtype(df[col]):
             n2n_option = kwargs.get('n2n_option', {'hue': None, 'style': None})
             render_num2num(df, col, target, hue=n2n_option['hue'], style=n2n_option['style'], figsize=(6,4))
+            display(Markdown(f'----------'))
 
     for col in df.drop(columns=[target]).dtypes.sort_values().index:
         if pd.api.types.is_object_dtype(df[col]):
             render_cat2num(df, col, target)
+            display(Markdown(f'----------'))
 
 def render_dict2table(dict_data, header='col', floatfmt=None, title=None, render=None, selected_keys=None):
     """
@@ -961,7 +1007,7 @@ def render_variable(df, col, title=False):
         '''.replace('\n', '')
     
     if title:
-        html = f'<h2>{title}</h2>' + html
+        html = f'<h3>[{title}]</h3>' + html
         
     # html
     display(HTML(html))    
