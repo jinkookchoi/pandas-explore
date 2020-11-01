@@ -375,6 +375,9 @@ def plot_interface(func):
         image_fn = kwargs.get('image_fn', get_image_folder(f'{func.__name__}_{args[1]}_{str(uuid.uuid4())}.png'))
         figsize = kwargs.get('figsize', (7,5))
         
+        # for Korean font
+        plt.rc('font', family='NanumGothicCoding')
+
         if func.__name__ not in ['plot_cat2cat', 'plot_num2hist']:
             plt.figure(figsize=figsize)
 
@@ -564,6 +567,10 @@ def plot_num2cat(df, num_col, target_col, multiple='layer', **kwargs):
         color = ['red', 'green', 'orange', 'blue', 'grey', 'navy', 'black']
         for idx, cat in enumerate(df[target_col].unique()):
             sns.kdeplot(df[df[target_col] == cat][num_col].dropna(), color=color[idx], label=cat)
+        
+        # for xlim setting
+        if kwargs.get('xlim'):
+            plt.xlim(kwargs.get('xlim'))
 
     if save_only:
         plt.savefig(image_fn)
@@ -615,6 +622,70 @@ def plot_cats2point(df, cat_cols, target_col, hue=None, **kwargs):
     plt.show()
     
     if bypass:
+        return df
+
+
+def plot_corrmap(df, **kwargs):
+    bypass = kwargs.get('bypass', False)
+
+    numerics = ['int16', 'int32', 'int64', 'float16', 'float32', 'float64']
+    dff = df.select_dtypes(include=numerics)
+
+    columns = dff.columns.values
+    col_len = len(columns)
+
+    print('<Correlation Heatmap for numeric columns of DataFrame>')
+    print(f'Columns {columns}')
+
+    corr = np.corrcoef(np.random.randn(col_len, 200))
+    mask = np.zeros_like(corr)
+    mask[np.triu_indices_from(mask)] = True
+
+    figsize = kwargs.get('figsize', (8,6))
+    fontsize = kwargs.get('fontsize', 8)
+
+    # for heatmap size
+    fig, ax = plt.subplots(figsize=figsize)
+
+    (df
+     .filter(columns)
+     .corr()
+     .pipe(sns.heatmap, annot=True, square=True, mask=mask, ax=ax, vmax=.3, linewidths=.5, annot_kws={"size": fontsize})
+    )
+    if kwargs.get('title', False):
+        plt.title(kwargs['title'])
+
+    plt.show()
+
+    if bypass:
+        return df
+
+def histplot_prob(df, hue, x, **kwargs):
+    """
+    Example:
+        >>> histplot_prob(df_titanic, hue='Survived', x='Sex')
+        >>> histplot_prob(df_titanic, hue='Survived', x='Age')
+    """
+    figsize = kwargs.get('figsize', (6, 4))
+    
+    if kwargs.get('title', False):
+        plt.title(kwargs.get('title'))
+                
+    (df
+     .astype({x: 'object'})
+     .assign(temp = lambda df: df[x].map(lambda x: str(x)))
+     .rename(columns={'temp':f'category_{x}'})
+     .pipe((sns.histplot, 'data'),
+       x=f'category_{x}', hue=hue, stat="probability", multiple="fill", shrink=.8)
+    )
+    sns.set(rc={'figure.figsize':figsize})
+    
+    if kwargs.get('xticks_rotation', False):
+        plt.xticks(rotation=kwargs.get('xticks_rotation'), horizontalalignment='right', fontweight='light')
+        
+    plt.show()
+    
+    if kwargs.get('bypass', False):
         return df
 
 def render_cat2cat(df, cat_col, target_col):
