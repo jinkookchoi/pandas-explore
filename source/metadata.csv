@@ -6,3 +6,5 @@ int_cont_cnt,int,인터넷 계약 건수
 efct_mphon_sbsc_cascnt,int,유효 이동전화 가입 건수
 efct_pstn_sbsc_cascnt,int,유효 PSTN 가입 건수
 fct_soip_sbsc_cascnt,int,유효 SOIP 가입 건수
+Pclass,object,객실 등급
+Age,int,나이

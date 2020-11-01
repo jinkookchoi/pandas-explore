@@ -19,7 +19,7 @@ from IPython.display import display, HTML, Markdown, Latex, Image
 
 __author__ = "Jin-kook Choi"
 __license__ = "GPL"
-__version__ = "0.0.1"
+__version__ = "0.0.2"
 __email__ = "jinkookchoi@gmail.com"
 __status__ = "Development"
 
@@ -82,6 +82,149 @@ def filter_by_tag(df, *tags, cond='and', return_cols=True):
             return df.filter(list(col_intersectin_set))
         else:
             None
+
+
+def csnap(df, fn=lambda x: x.shape, msg=None):
+    """ Custom Help function to print things in method chaining.
+        Returns back the df to further use in chaining.
+    
+    Example:
+        >>> df.pipe(csnap, lambda x: x.sample(5))
+    """
+    if msg:
+        print(msg)
+    display(fn(df))
+    return df
+
+
+def setcols(df, fn=lambda x: x.columns.map('_'.join), cols=None):
+    """Sets the column of the data frame to the passed column list.
+
+    Example:
+        >>> (
+        >>>     iris.pipe(csnap, lambda x: x.head(), msg="Before")
+        >>>     .pipe(
+        >>>         setcols,
+        >>>         fn=lambda x: x.columns.str.lower()
+        >>>         .str.replace(r"\(cm\)", "")
+        >>>         .str.strip()
+        >>>         .str.replace(" ", "_"),
+        >>>         cols=list("abcd")
+        >>>     )
+        >>>     .pipe(csnap, lambda x: x.head(), msg="After")
+        >>> )
+            sepal_length	sepal_width	petal_length	petal_width
+        0	5.1	3.5	1.4	0.2
+        1	4.9	3.0	1.4	0.2
+        2	4.7	3.2	1.3	0.2
+    """
+    if cols:
+        df.columns = cols
+    else:
+        df.columns = fn(df)
+    return df
+
+def cfilter(df, fn, axis="rows"):
+    """ Custom Filters based on a condition and returns the df.
+        function - a lambda function that returns a binary vector
+        thats similar in shape to the dataframe
+        axis = rows or columns to be filtered.
+        A single level indexing
+
+        >>> (
+        >>>     iris.pipe(
+        >>>         setcols,
+        >>>         fn=lambda x: x.columns.str.lower()
+        >>>         .str.replace(r"\(cm\)", "")
+        >>>         .str.strip()
+        >>>         .str.replace(" ", "_"),
+        >>>     ).pipe(cfilter, lambda x: x.columns.str.contains("sepal"), axis="columns")
+        >>> )
+
+        	sepal_length	sepal_width
+        0	5.1	3.5
+        1	4.9	3.0
+        2	4.7	3.2
+    """
+    if axis == "rows":
+        return df[fn(df)]
+    elif axis == "columns":
+        return df.iloc[:, fn(df)]
+
+def extractor(df, cols, pattern, new_cols=None):
+    """컬럼의 텍스트에서 특정 패턴을 찾아 새로운 컬럼에 넣습니다.
+    
+    Example:
+        >>> # City, State에서 도시명 추출하기. Chicago, IL -> Chicago
+        >>> df = pd.DataFrame({'city': ['Chicago, IL']})
+        >>> df.pipe(extractor, ['city'], "(.*), \w{2}", ['new_city'])
+        	city
+        0	Chicago
+    """
+    extracted = df[cols].apply(lambda x: x.str.extract(pattern, expand=False))
+    
+    df = df.copy()
+    if new_cols:
+        df[new_cols] = extracted
+    else:
+        df[cols] = extracted
+    return df
+
+def split(df, column, target_name, target_type, regex, del_column=True):
+    """컬럼 데이터를 패턴을 기준으로 값 분리하여 반환한다.
+    
+    Example:
+        >>> df = pd.DataFrame({'year_month': ['1980.06', '1976.11']})
+        >>> df.pipe(split, column='year_month', target_name=['year', 'month'], target_type=[int, int], regex=r'(\d+)\.(\d+)')
+        	year	month
+        0	1980	6
+        1	1976	11
+    """
+    df_rtn = df.copy()
+    df_rtn[target_name] = df[column].astype(str).str.extract(regex)
+    if del_column:
+        df_rtn.drop(columns=column, inplace=True)
+    
+    return df_rtn.astype(dict(zip(list(target_name), list(target_type))))
+
+def split_item(df, col, str_split, index, new_col=None):
+    """컬럼 데이터를 패턴을 기준으로 분리한 후 특정 인덱스를 추출한다.
+
+    Example:
+        >>> df = pd.DataFrame({'year_month': ['1980.06', '1976.11']})
+        >>> (df
+        >>>     .pipe(split_item, col='year_month', str_split='.', index=0, new_col='year')
+        >>>     .pipe(split_item, col='year_month', str_split='.', index=1, new_col='month'))
+    """
+
+    if new_col:
+        df[new_col] = df[col].str.split(str_split).str[index]
+    else:
+        df[col] = df[col].str.split(str_split).str[index]
+    return df
+
+# df.assign(age = make_normalize(df.age))
+make_normalize = lambda series_: (series_ - np.min(series_))/(np.max(series_) - np.min(series_))
+
+# df.assign(fare = make_zscore(df.fare))
+make_zscore = lambda series_: (series_ - np.mean(series_))/np.std(series_)
+
+# get_col_name_ko('mob_trmn_cnt')
+def get_col_name_ko(col, metafile='metadata.csv', df_meta=None, comb=True):
+    if df_meta is None and os.path.exists(metafile):
+        df_meta = pd.read_csv(metafile)
+
+    query_col = df_meta.query(f'col_name == "{col}"')
+
+    if query_col.empty:
+        return col
+    else:
+        col_ko = df_meta.query(f'col_name == "{col}"').col_name_ko.values[0]
+        if comb:
+            return f'{col}({col_ko})'
+        else:
+            return col_ko
+
 
 def get_dataset_stat(df):
     """Pandas 데이터프레임의 기본 정보 통계 정보를 획득
@@ -710,7 +853,7 @@ def render_cat2cat(df, cat_col, target_col):
 
     html = f'''
         <table>
-            <tr><td colspan=2 {header_style}>"{target_col}" by "{cat_col}"</td></tr>
+            <tr><td colspan=2 {header_style}>"{target_col}" by "{get_col_name_ko(cat_col)}"</td></tr>
             <tr><td {col_header_style}>Class Counts</td><td {col_header_style}>Normalized Counts</td></tr>
             <tr>
                 <td><img src="{get_src_from_data(cat2cat_counts)}"></td>
@@ -742,7 +885,7 @@ def render_num2cat(df, num_col, target_col):
 
         html = f'''
             <table>
-                <tr><td colspan=2 {header_style}>"{target_col}" by "{num_col}"</td></tr>
+                <tr><td colspan=2 {header_style}>"{target_col}" by "{get_col_name_ko(num_col)}"</td></tr>
                 <tr><td {col_header_style}>Class Distribution</td><td {col_header_style}>Normalized Distribution</td></tr>
                 <tr>
                     <td><img src="{get_src_from_data(layer_image)}"></td>
@@ -760,7 +903,7 @@ def render_num2cat(df, num_col, target_col):
 
         html = f'''
             <table>
-                <tr><td colspan=2 {header_style}>"{target_col}" by "{num_col}"</td></tr>
+                <tr><td colspan=2 {header_style}>"{target_col}" by "{get_col_name_ko(num_col)}"</td></tr>
                 <tr><td {col_header_style}>Class Distribution</td></tr>
                 <tr>
                     <td><img src="{get_src_from_data(layer_image)}"></td>
@@ -788,7 +931,7 @@ def render_num2num(df, num_col, target_col, **kwargs):
     
     html = f'''
         <table>
-            <tr><td {header_style} colspan=3>"{target_col}" Distribution by "{num_col}" </td></tr>
+            <tr><td {header_style} colspan=3>"{target_col}" Distribution by "{get_col_name_ko(num_col)}" </td></tr>
             <tr>
                 <td><img src="{get_src_from_data(image_default)}"></td>
                 <td><img src="{get_src_from_data(image_category)}"></td>
@@ -818,7 +961,7 @@ def render_cat2num(df, cat_col, target_col, **kwargs):
     
     html = f'''
         <table>
-            <tr><td {header_style} colspan=2>"{target_col}" Distribution by "{cat_col}" </td></tr>
+            <tr><td {header_style} colspan=2>"{target_col}" Distribution by "{get_col_name_ko(cat_col)}" </td></tr>
             <tr>
                 <td><img src="{get_src_from_data(image_box)}"></td>
                 <td><img src="{get_src_from_data(image_pie)}"></td>
@@ -1122,3 +1265,4 @@ def report_dataset(render_info, target_col, model_type='clf'):
         render_target_by_feature_reg(dfs[0]['df'], target_col, set_name=set_name, title=title_feature_dist)
     elif model_type == 'clf':
         render_target_by_feature_clf(dfs[0]['df'], target_col, set_name=set_name, title=title_feature_dist)
+
