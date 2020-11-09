@@ -10,11 +10,7 @@ Pandas Explore는 Pandas를 좀 더 유용하게 사용하기 위해 plotting, r
 
 ## Usage
 
-+ Plot 사용 방법 
-+ Render 사용 방법
++ [Plot 사용 방법](https://github.com/jinkookchoi/pandas-explore/blob/main/source/2.Plot.ipynb)
++ [Render 사용 방법](https://github.com/jinkookchoi/pandas-explore/blob/main/source/3.Render.ipynb)
++ [Report for Regression 사용 방법](https://github.com/jinkookchoi/pandas-explore/blob/main/source/1.Report_reg.ipynb)
 + [Report for Classification 사용 방법](https://github.com/jinkookchoi/pandas-explore/blob/main/source/1.Report_clf.ipynb)
-
-## Example
-
-+ Titanic
-+ Diamonds
