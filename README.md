@@ -12,7 +12,7 @@ Pandas Explore는 Pandas를 좀 더 유용하게 사용하기 위해 plotting, r
 
 + Plot 사용 방법 
 + Render 사용 방법
-+ Report 사용 방법
++ [Report for Classification 사용 방법](https://github.com/jinkookchoi/pandas-explore/blob/main/source/1.Report_clf.ipynb)
 
 ## Example
 
